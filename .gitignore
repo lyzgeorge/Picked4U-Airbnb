@@ -1,0 +1,9 @@
+/plan.md
+/dev-plan.md
+/.devtest/
+/backend/data/
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store

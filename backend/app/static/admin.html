@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Picked 4 U · admin</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 760px; margin: 32px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 22px; } h2 { font-size: 17px; margin-top: 32px; }
+  input[type=text], input[type=password], textarea { width: 100%; box-sizing: border-box; padding: 8px;
+    border: 1px solid #ccc; border-radius: 8px; font: inherit; }
+  textarea { min-height: 70px; }
+  button { padding: 8px 16px; border: 0; border-radius: 8px; background: #222; color: #fff; font: inherit; cursor: pointer; }
+  label { display: block; margin: 12px 0 4px; font-weight: 600; }
+  pre { background: #f5f5f5; padding: 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; }
+  progress { width: 100%; height: 14px; }
+</style>
+</head>
+<body>
+<h1>Picked 4 U · admin</h1>
+<pre id="health">loading…</pre>
+
+<h2>1. Upload reviews.csv</h2>
+<label>Admin token</label><input id="admin" type="password">
+<label>CSV file (listing_id, id, date, comments)</label><input id="file" type="file" accept=".csv">
+<p><button id="upload">Upload and index</button> <button id="reindex">Rebuild index only</button> <button id="chunks">Build sentence chunks</button></p>
+<progress id="bar" value="0" max="1"></progress>
+<pre id="job">no job yet</pre>
+
+<h2>2. Try a query</h2>
+<label>API token</label><input id="api" type="password">
+<label>Listing IDs (space or comma separated)</label><textarea id="ids"></textarea>
+<label>Preference</label><textarea id="pref"></textarea>
+<label>Chat message (optional)</label><input id="msg" type="text">
+<p><button id="go">Recommend</button></p>
+<pre id="out"></pre>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const session = crypto.randomUUID();
+for (const k of ["admin", "api", "ids", "pref"]) {
+  $(k).value = localStorage.getItem(k) || "";
+  $(k).addEventListener("change", () => localStorage.setItem(k, $(k).value));
+}
+async function health() {
+  $("health").textContent = JSON.stringify(await (await fetch("health")).json());
+}
+async function poll(jobId) {
+  const r = await fetch("admin/jobs/" + jobId, { headers: { "X-Admin-Token": $("admin").value } });
+  const j = await r.json();
+  $("job").textContent = JSON.stringify(j, null, 2);
+  $("bar").max = j.total || 1; $("bar").value = j.done || 0;
+  if (["queued", "running", "indexing"].includes(j.status)) setTimeout(() => poll(jobId), 2000);
+  else health();
+}
+async function startJob(url, body) {
+  $("job").textContent = "uploading…";
+  const r = await fetch(url, { method: "POST", headers: { "X-Admin-Token": $("admin").value }, body });
+  const j = await r.json();
+  if (!r.ok) { $("job").textContent = JSON.stringify(j); return; }
+  poll(j.job_id);
+}
+$("upload").onclick = () => {
+  if (!$("file").files[0]) return alert("Pick a file first");
+  const fd = new FormData(); fd.append("file", $("file").files[0]);
+  startJob("admin/upload", fd);
+};
+$("reindex").onclick = () => startJob("admin/reindex");
+$("chunks").onclick = () => startJob("admin/chunks");
+$("go").onclick = async () => {
+  $("out").textContent = "thinking…";
+  const t = Date.now();
+  const r = await fetch("recommend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Api-Token": $("api").value },
+    body: JSON.stringify({ session_id: session, listing_ids: $("ids").value.split(/[\s,]+/).filter(Boolean),
+                           preference: $("pref").value, message: $("msg").value }),
+  });
+  $("out").textContent = `${r.status} in ${((Date.now() - t) / 1000).toFixed(1)}s\n` +
+    JSON.stringify(await r.json(), null, 2);
+};
+health();
+</script>
+</body>
+</html>

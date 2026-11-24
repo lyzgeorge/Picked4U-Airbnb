@@ -1,0 +1,14 @@
+services:
+  backend:
+    build: ./backend
+    env_file: backend/.env
+    environment:
+      LANCE_PATH: /data/lancedb
+    volumes:
+      - lance-data:/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+volumes:
+  lance-data:

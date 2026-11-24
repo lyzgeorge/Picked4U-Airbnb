@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Picked 4 U",
+  "version": "0.1.0",
+  "description": "Recommends Airbnb listings on the search page based on what past guests said in reviews.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://localhost:8000/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "Picked 4 U" },
+  "content_scripts": [{
+    "matches": ["https://www.airbnb.ie/*", "https://www.airbnb.com/*", "https://www.airbnb.co.uk/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}
